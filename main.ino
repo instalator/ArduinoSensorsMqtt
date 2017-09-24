@@ -6,7 +6,13 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <avr/wdt.h>
-Servo servo;
+
+#define ID_CONNECT   "bedroom"
+#define SERVO_PIN    3 //Порт к которому подключен сервопривод
+#define ONE_WIRE_BUS 8
+#define DHT22_PIN    9
+#define MQ7_PIN      A0 // Куда подключили MQ7
+#define FOTO_PIN     A1    // устанавливаем входную ногу для Фоторезистора
 
 byte mac[]    = { 0x01, 0x23, 0x40, 0x41, 0x8A, 0x13 };
 byte server[] = { 192, 168, 1, 190 }; //IP Брокера
@@ -22,12 +28,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 ////////////////////////////////////////////////////////////////////////////
 EthernetClient ethClient;
 PubSubClient client(server, 1883, callback, ethClient);
-
-#define ID_CONNECT   "bedroom"
-#define SERVO_PIN    3 //Порт к которому подключен сервопривод
-#define ONE_WIRE_BUS 8
-#define DHT22_PIN    9
-
+Servo servo;
 dht DHT;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS_sensors(&oneWire);
@@ -42,11 +43,8 @@ bool Window = false;
 bool old_Window = true;
 bool Motion = false;
 bool old_Motion = true;
-int pause = 0;
-int MQ7_Pin = A0; // Куда подключили MQ7
-int MQ7Value = analogRead(MQ7_Pin); 
-int foto_Pin = A1;    // устанавливаем входную ногу для Фоторезистора
-unsigned int fotoValue = analogRead(foto_Pin);
+int MQ7Value = analogRead(MQ7_PIN); 
+unsigned int fotoValue = analogRead(FOTO_PIN);
 float T_radiator = 0; //Temp_radiator
 float T_in = 0; //Temp_in
 float Hout = 0;
@@ -62,8 +60,7 @@ int n_DO_pin = sizeof(start_DO_pin) / sizeof(start_DO_pin[0])-1; //Вычисл�
 void setup() {
   MCUSR = 0;
   wdt_disable();
-  Serial.begin(115200);
-  //Serial.println("start");
+  //Serial.begin(115200);
   for(int i=0 ;i<=n_DI_pin; i++) { pinMode (start_DI_pin [i], INPUT); }
   digitalWrite(5, HIGH); //Окно
   digitalWrite(4, HIGH); //Объемник
@@ -72,8 +69,8 @@ void setup() {
   Ethernet.begin(mac, ip);
   if (client.connect(ID_CONNECT)) {
     getSensors();
-    //control();
     PubTopic();
+    client.publish("myhome/Bedroom/connection", "true");
     client.subscribe("myhome/Bedroom/#");
   }
   wdt_enable(WDTO_8S);
@@ -119,8 +116,7 @@ void reconnect() {
     if (client.connect(ID_CONNECT)) {
       count = 0;
       wdt_reset();
-      client.publish("myhome/lighting/connection", "true");
-      //control();
+      client.publish("myhome/Bedroom/connection", "true");
       getSensors();
       PubTopic();
       client.subscribe("myhome/Bedroom/#");
@@ -136,21 +132,18 @@ void callback_iobroker(String strTopic, String strPayload){
         ServoAngle=strPayload.toInt();
     if (ServoAngle >= 0 && ServoAngle <= 255){
           servo.attach(SERVO_PIN);
-          //delay(200);
           servo.write(ServoAngle); //ставим вал под 0
-          delay(1000);
-          //client.publish("myhome/Bedroom/Servo", b); 
+          delay(1000); 
           servo.detach();
     }
   }
 }
 
-void getSensors () {
+void getSensors() {
   Window = digitalRead(5);
   Motion = digitalRead(4);
-  MQ7Value = analogRead(MQ7_Pin); 
-  fotoValue = analogRead(foto_Pin);  // считываем значение с фоторезистора
-
+  MQ7Value = analogRead(MQ7_PIN); 
+  fotoValue = analogRead(FOTO_PIN);  // считываем значение с фоторезистора
   if (DHT.read22(DHT22_PIN)== DHTLIB_OK) {
     if(DHT.humidity != 0 || DHT.temperature != 0){
       Hout = DHT.humidity;
@@ -170,7 +163,6 @@ const char* FloatToChar (float f) {
   sprintf(buf, "%d.%02d", (int)f, (int)(f*100)%100);
   return buf;
 }
-
 const char* BoolToChar (bool r) {
     return r ? "true" : "false";
 }
