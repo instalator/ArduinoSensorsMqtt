@@ -160,7 +160,7 @@ const char* IntToChar (int v) {
   return buf;
 }
 const char* FloatToChar (float f) {
-  sprintf(buf, "%d.%02d", (int)f, (int)(f*100)%100);
+  sprintf(buf, "%d.%02d", (int)f, (unsigned int)(f*100)%100);
   return buf;
 }
 const char* BoolToChar (bool r) {
